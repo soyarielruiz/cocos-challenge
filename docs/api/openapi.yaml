@@ -1,0 +1,325 @@
+openapi: 3.0.3
+info:
+  title: Cocos Challenge Backend API
+  version: 1.0.0
+  description: |
+    API de gestión de portfolio y órdenes de inversión.
+    
+    Reglas de dominio clave:
+    - MARKET: se ejecuta inmediatamente al último precio `close` (status: FILLED). No acepta `price` en el request.
+    - LIMIT: se persiste en estado NEW (sin matching engine).
+    - REJECTED: las órdenes sin fondos/tenencia se persisten y retornan 201 Created (ADR-0005).
+    - Cash (ARS): se modela como un instrumento de tipo 'MONEDA' (ADR-0004).
+    - No se requiere autenticación; el `userId` se pasa en el request.
+    - `performancePct` es null si la cantidad de acciones es <= 0 (ADR-0004).
+
+servers:
+  - url: http://localhost:3000
+    description: Servidor de desarrollo local
+
+paths:
+  /health:
+    get:
+      summary: Health check de la API y DB
+      operationId: getHealth
+      responses:
+        '200':
+          description: API y DB operativas
+          headers:
+            X-Request-Id:
+              schema:
+                type: string
+              description: ID único de la petición para trazabilidad (ADR-0007).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+
+  /api/instruments:
+    get:
+      summary: Buscar activos por ticker o nombre
+      operationId: searchInstruments
+      parameters:
+        - name: search
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+          description: Término de búsqueda. Evalúa con ILIKE sobre ticker y nombre.
+      responses:
+        '200':
+          description: Lista de instrumentos que coinciden.
+          headers:
+            X-Request-Id:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Instrument'
+        '400':
+          description: Error de validación (ej. parámetro search ausente).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/users/{userId}/portfolio:
+    get:
+      summary: Obtener el portfolio de un usuario
+      operationId: getPortfolio
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Portfolio calculado en tiempo real (derivado, no materializado).
+          headers:
+            X-Request-Id:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Portfolio'
+        '404':
+          description: Usuario no encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/orders:
+    post:
+      summary: Enviar una nueva orden al mercado
+      description: |
+        Crea una orden de compra o venta, o un depósito/extracción de efectivo
+        (CASH_IN / CASH_OUT sobre el instrumento de type MONEDA).
+        - Se debe enviar `size` (cantidad exacta) XOR `amount` (monto en ARS).
+        - Si se envía `amount`, se calcula `size = floor(amount / precio)`. Si size = 0, se rechaza.
+        - BUY / SELL: MARKET se ejecuta al último close (FILLED); LIMIT queda en NEW al precio pedido.
+        - CASH_IN / CASH_OUT: solo con type MARKET (LIMIT → 400); `instrumentId` debe ser
+          el instrumento de type MONEDA; `price` prohibido, igual que todo MARKET.
+          CASH_IN pasa a FILLED; CASH_OUT valida el cash disponible
+          (insuficiente → REJECTED persistido, igual que un SELL sin tenencia).
+        - Los rechazos de negocio (fondos, tenencia o cash insuficientes) se persisten
+          en REJECTED y responden 201 con la orden; 400 solo para errores de contrato.
+      operationId: createOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderRequest'
+      responses:
+        '201':
+          description: Orden creada exitosamente (status puede ser FILLED, NEW o REJECTED).
+          headers:
+            X-Request-Id:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: Error de validación de contrato (ej. falta price en LIMIT, o se envió price en MARKET).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Usuario o instrumento no encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/orders/{id}/cancel:
+    post:
+      summary: Cancelar una orden existente
+      description: Solo las órdenes en estado NEW pueden ser canceladas.
+      operationId: cancelOrder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+              properties:
+                userId:
+                  type: integer
+                  description: ID del usuario que solicita la cancelación (validación de propiedad).
+      responses:
+        '200':
+          description: Orden cancelada exitosamente.
+          headers:
+            X-Request-Id:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '404':
+          description: Orden no encontrada o no pertenece al usuario.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: "Conflicto de dominio: la orden no está en estado NEW."
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    Instrument:
+      type: object
+      properties:
+        id:
+          type: integer
+        ticker:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: [ACCIONES, MONEDA]
+
+    Position:
+      type: object
+      properties:
+        ticker:
+          type: string
+        name:
+          type: string
+        quantity:
+          type: integer
+          description: Cantidad de acciones (puede ser negativa si el seed legacy lo permite).
+        marketValue:
+          type: number
+          format: double
+          description: quantity * último precio close.
+        performancePct:
+          type: number
+          format: double
+          nullable: true
+          description: Rendimiento total vs precio promedio ponderado. Null si quantity <= 0 (ADR-0004).
+        dailyChangePct:
+          type: number
+          format: double
+          description: Variación diaria del activo (close vs previousClose).
+
+    Portfolio:
+      type: object
+      properties:
+        userId:
+          type: integer
+        totalValue:
+          type: number
+          format: double
+        availableCash:
+          type: number
+          format: double
+          description: Cash disponible en ARS (instrumento MONEDA).
+        positions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Position'
+
+    OrderRequest:
+      type: object
+      required:
+        - userId
+        - instrumentId
+        - side
+        - type
+      properties:
+        userId:
+          type: integer
+        instrumentId:
+          type: integer
+        side:
+          type: string
+          enum: [BUY, SELL, CASH_IN, CASH_OUT]
+        type:
+          type: string
+          enum: [MARKET, LIMIT]
+        size:
+          type: integer
+          description: Cantidad de acciones. Obligatorio si no se envía `amount`.
+        amount:
+          type: number
+          format: double
+          description: Monto total en ARS a invertir. Obligatorio si no se envía `size`.
+        price:
+          type: number
+          format: double
+          description: Obligatorio para tipo LIMIT. Prohibido para tipo MARKET.
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        instrumentId:
+          type: integer
+        side:
+          type: string
+          enum: [BUY, SELL, CASH_IN, CASH_OUT]
+        type:
+          type: string
+          enum: [MARKET, LIMIT]
+        size:
+          type: integer
+        price:
+          type: number
+          format: double
+          nullable: true
+        status:
+          type: string
+          enum: [NEW, FILLED, REJECTED, CANCELLED]
+        createdAt:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Código de error legible por máquina (ej. INSUFFICIENT_FUNDS, INVALID_ORDER_STATE).
+        message:
+          type: string
+          description: Mensaje descriptivo para el desarrollador/cliente.
+        details:
+          type: array
+          items:
+            type: string
+          description: Detalles adicionales (ej. campos fallidos en validación Zod).
