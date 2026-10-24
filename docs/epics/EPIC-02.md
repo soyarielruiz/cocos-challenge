@@ -23,7 +23,7 @@ npm start
 In a second terminal, run the endpoint and its real-database integration suite:
 
 ```sh
-curl -i "http://localhost:3000/api/instruments?search=app"
+curl -i "http://localhost:3000/api/instruments?search=banco"
 npm test test/integration/instruments-search.test.js
 npm run lint
 ```
@@ -31,7 +31,8 @@ npm run lint
 ## Expected output
 
 The search request returns HTTP 200 with an `X-Request-Id` header and a JSON
-array of instruments matching `app` in ticker or name. An exact ticker match,
+array of instruments matching `banco` in ticker or name (for example, BBAR,
+BHIP, BMA, and BPAT by name in the provided seed). An exact ticker match,
 when present, appears first. The integration suite prints `PASS` after running
 against the seeded Docker Compose PostgreSQL database, and lint passes.
 

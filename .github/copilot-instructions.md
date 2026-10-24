@@ -184,9 +184,12 @@ Rules for the log:
   double-spend. (ADR-0009)
 - Portfolio and cash are derived, never materialized: aggregate `size` over
   `FILLED` orders per instrument (cash is the instrument with type `MONEDA`).
-  The market-data repository alone owns the latest-price `DISTINCT ON
-  ("instrument_id") ... ORDER BY "market_date" DESC` query; no other module
-  contains raw SQL. Position performance compares volume-weighted average
+  Raw SQL lives only inside repositories and is always parameterized:
+  the market-data repository owns the latest-price `DISTINCT ON
+  ("instrument_id") ... ORDER BY "market_date" DESC` query, and the
+  instrument-search repository owns the `ILIKE` / exact-ticker-first query.
+  No other module contains raw SQL. Position performance compares
+  volume-weighted average
   buy price against the latest `close`; daily return uses `close` vs
   `previousClose`. (ADR-0004)
 - Register one error-handling middleware after all routes: it maps typed
