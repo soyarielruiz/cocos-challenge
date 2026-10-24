@@ -1,0 +1,23 @@
+{
+  "name": "cocos-challenge-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "db:baseline": "prisma db execute --file prisma/migrations/20261023000000_normalize_schema/migration.sql && prisma migrate resolve --applied 20261023000000_normalize_schema",
+    "db:migrate": "prisma migrate deploy",
+    "db:seed": "prisma db seed",
+    "test:db": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand test/integration/database-contract.test.js"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0"
+  },
+  "devDependencies": {
+    "dotenv": "^18.0.9",
+    "jest": "^29.7.0",
+    "prisma": "^5.22.0"
+  }
+}

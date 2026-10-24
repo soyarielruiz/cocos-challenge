@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_TEST")
+}
+
+model User {
+  id            Int     @id @default(autoincrement())
+  email         String  @unique(map: "users_email_key") @db.VarChar(255)
+  accountNumber String  @map("account_number") @db.VarChar(20)
+  orders        Order[]
+
+  @@map("users")
+}
+
+model Instrument {
+  id         Int          @id @default(autoincrement())
+  ticker     String       @unique(map: "instruments_ticker_key") @db.VarChar(10)
+  name       String       @db.VarChar(255)
+  type       String       @db.VarChar(10)
+  orders     Order[]
+  marketData MarketData[]
+
+  @@map("instruments")
+}
+
+model Order {
+  id           Int        @id @default(autoincrement())
+  instrumentId Int        @map("instrument_id")
+  userId       Int        @map("user_id")
+  size         Int
+  price        Decimal    @db.Decimal(18, 2)
+  type         String     @db.VarChar(10)
+  side         String     @db.VarChar(10)
+  status       String     @db.VarChar(20)
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamp(6)
+  instrument   Instrument @relation(fields: [instrumentId], references: [id], onDelete: Restrict)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@map("orders")
+}
+
+model MarketData {
+  id           Int        @id @default(autoincrement())
+  instrumentId Int        @map("instrument_id")
+  high         Decimal?   @db.Decimal(18, 2)
+  low          Decimal?   @db.Decimal(18, 2)
+  open         Decimal?   @db.Decimal(18, 2)
+  close        Decimal    @db.Decimal(18, 2)
+  previousClose Decimal   @map("previous_close") @db.Decimal(18, 2)
+  marketDate   DateTime   @map("market_date") @db.Date
+  instrument   Instrument @relation(fields: [instrumentId], references: [id], onDelete: Restrict)
+
+  @@unique([instrumentId, marketDate], map: "marketdata_instrument_id_market_date_key")
+  @@index([instrumentId, marketDate(sort: Desc)], map: "marketdata_instrument_id_market_date_desc_idx")
+  @@map("marketdata")
+}

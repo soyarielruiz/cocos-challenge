@@ -38,7 +38,7 @@ curl -i http://localhost:3000/health && npm test test/integration/health.test.js
 
 - **TDD (red-first):** Add and run failing database contract checks against the isolated test database before changing the schema. Cover the required naming, foreign-key behavior, domain constraints, money precision, uniqueness, and performance indexes.
 - **Work:** Create the initial Prisma migration as the schema source of truth, preserving the specified schema invariants. Add or update the seed flow to reload the provided data as-is.
-- **Verify:** Run the database contract tests, then `npm run db:migrate && npm run db:seed` against the isolated test database. Confirm seed data was not corrected or otherwise changed.
+- **Verify:** For the pre-existing provided schema, run `npm run db:baseline` once to normalize it and record the initial migration; on a fresh database, run `npm run db:migrate` directly. Then run `npm run db:migrate && npm run db:seed && npm run test:db` against the isolated test database. Confirm seed data was not corrected or otherwise changed.
 - **Commit:** Commit this schema-and-seed slice separately.
 - **Citations:** [ADR-0001](../adrs/ADR-0001-stack-express-javascript.md), [ADR-0003](../adrs/ADR-0003-schema-normalizado.md), [ADR-0008](../adrs/ADR-0008-estrategia-de-testing.md).
 
