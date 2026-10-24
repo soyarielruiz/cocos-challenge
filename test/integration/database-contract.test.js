@@ -5,8 +5,8 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 beforeAll(async () => {
-  if (!process.env.DATABASE_TEST) {
-    throw new Error('DATABASE_TEST must point to an isolated test database.');
+  if (!process.env.DATABASE_LOCAL) {
+    throw new Error('DATABASE_LOCAL must point to the local development database.');
   }
   await prisma.$connect();
 });

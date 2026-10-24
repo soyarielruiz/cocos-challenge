@@ -120,9 +120,12 @@ Rules for the log:
   seed itself is reloaded as-is, never "corrected".
 - Read configuration from environment through one Zod schema at startup;
   fail before serving if invalid and report all detected errors. Only `PORT`
-  defaults. Keep `.env` untracked and commit `.env.example`. Integration tests
-  run against an isolated Neon branch, never the development database; seed
-  deterministic test data per run. (ADR-0001, ADR-0008)
+  defaults. Keep `.env` untracked and commit `.env.example`. Use
+  `DATABASE_LOCAL` for local Docker Compose PostgreSQL (`postgres:18`, ephemeral
+  storage, deterministic seed) during development and routine testing. Keep
+  `DATABASE_TEST` for isolated Neon validation after endpoint flows are
+  functional; never use the development branch for tests. Migrate and seed the
+  provided database only at delivery. (ADR-0001, ADR-0008, ADR-0010)
 - Compensate the missing compiler deliberately: every port and exported
   function carries JSDoc `@typedef`/`@param`/`@returns` types, enforced by
   ESLint with `eslint-plugin-jsdoc`. No TypeScript tooling anywhere in the
@@ -213,9 +216,11 @@ Rules for the log:
 
 - Red-first TDD on the create-order use case, executors, and policies: write
   and run contract-branch tests before implementation. Unit tests use
-  in-memory fakes implementing ports, with Prisma absent; integration tests
-  use real Prisma against the test Neon branch; never mock Prisma in
-  integration tests. (ADR-0008)
+  in-memory fakes implementing ports, with Prisma absent. Integration tests
+  use real Prisma against local Docker Compose PostgreSQL for routine
+  development and testing; validate functional endpoint flows against an
+  isolated Neon branch. Never mock Prisma in integration tests. (ADR-0008,
+  ADR-0010)
 - The functional e2e for `POST /orders` is mandatory and must cover: market
   BUY with funds → FILLED; market BUY without funds → REJECTED persisted;
   LIMIT → NEW; SELL without positions → REJECTED; cancel NEW → CANCELLED;

@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "db:baseline": "prisma db execute --file prisma/migrations/20261023000000_normalize_schema/migration.sql && prisma migrate resolve --applied 20261023000000_normalize_schema",
+    "db:local:up": "docker compose up -d postgres",
+    "db:local:down": "docker compose down",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "test:db": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand test/integration/database-contract.test.js"

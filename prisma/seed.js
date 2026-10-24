@@ -24,8 +24,8 @@ function normalizeColumnNames(statement) {
 }
 
 try {
-  if (!process.env.DATABASE_TEST) {
-    throw new Error('DATABASE_TEST must point to an isolated test database.');
+  if (!process.env.DATABASE_LOCAL) {
+    throw new Error('DATABASE_LOCAL must point to the local development database.');
   }
 
   const source = await readFile(seedPath, 'utf8');
