@@ -29,7 +29,7 @@ curl -i http://localhost:3000/health && npm test test/integration/health.test.js
 - Request IDs are returned in `X-Request-Id` on every response. One global error handler returns safe `{ code, message, details? }` envelopes, translates Prisma/pg errors, and does not expose stack traces or raw database errors.
 - The database-backed `/health` endpoint executes `SELECT 1` and returns the contract response when the database is operational, without exposing diagnostics.
 - Graceful shutdown is implemented.
-- Red-first tests cover configuration validation and the database-backed health check. Integration tests use real Prisma against the isolated test Neon branch, never the development database.
+- Red-first tests cover configuration validation and the database-backed health check. Development and routine tests use real Prisma against local Docker Compose PostgreSQL; hosted integration validation uses an isolated Neon branch after endpoint flows are functional, and the challenge-provided database is used only at delivery (ADR-0010).
 - The executable demo and expected output above are achievable from the repository root.
 
 ## Ordered sessions
@@ -60,8 +60,8 @@ curl -i http://localhost:3000/health && npm test test/integration/health.test.js
 
 ### 4. Deliver the database-backed health endpoint and epic gates
 
-- **TDD (red-first):** Add and run the failing health integration test before implementing the endpoint. Exercise it against real Prisma and the isolated test Neon branch; verify the successful response body, status, and request-ID header, and that database failures do not expose diagnostics.
+- **TDD (red-first):** Add and run the failing health integration test before implementing the endpoint. Exercise it against real Prisma and Docker Compose PostgreSQL using `DATABASE_LOCAL` (ADR-0010); verify the successful response body, status, and request-ID header, and that database failures do not expose diagnostics.
 - **Work:** Implement `GET /health` with `SELECT 1`, then confirm its response matches the OpenAPI contract. Run the epic's lint and integration gates.
-- **Verify:** Run `npm test test/integration/health.test.js`, `npm run lint`, and the complete executable demo. Confirm the database is available for the passing health case and the response is exactly `{"status":"ok"}` with HTTP 200 and `X-Request-Id`.
+- **Verify:** Start Docker Compose PostgreSQL (`npm run db:local:up`), then run `npm test test/integration/health.test.js` against it using `DATABASE_LOCAL`, `npm run lint`, and the complete executable demo. Confirm the database is available for the passing health case and the response is exactly `{"status":"ok"}` with HTTP 200 and `X-Request-Id`.
 - **Commit:** Commit the health endpoint and final EPIC-01 gate changes separately.
 - **Citations:** [ADR-0007](../adrs/ADR-0007-validacion-y-errores.md), [ADR-0008](../adrs/ADR-0008-estrategia-de-testing.md).

@@ -106,8 +106,10 @@ Rules for the log:
 ## Stack
 
 - Node.js 20 LTS, JavaScript ES modules (no TypeScript, no build step),
-  Express 4, Prisma 5, PostgreSQL (Neon, database provided by the challenge),
-  Zod, pino, Jest + Supertest. (ADR-0001)
+  Express 4, Prisma 5, PostgreSQL, Zod, pino, Jest + Supertest. Use Docker
+  Compose PostgreSQL for development and routine testing, an isolated Neon
+  branch for hosted integration validation after endpoint flows are functional,
+  and the challenge-provided database only at delivery. (ADR-0001, ADR-0010)
 - Migrations are the schema source of truth, not the provided seed. The
   initial Prisma migration normalizes the basic provided schema (ADR-0003):
   snake_case naming (`user_id`, `previous_close`, `created_at`, `market_date`),
