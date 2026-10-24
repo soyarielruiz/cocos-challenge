@@ -314,7 +314,13 @@ components:
       properties:
         code:
           type: string
-          description: Código de error legible por máquina (ej. INSUFFICIENT_FUNDS, INVALID_ORDER_STATE).
+          enum:
+            - INVALID_REQUEST
+            - NOT_FOUND
+            - ORDER_NOT_CANCELLABLE
+            - RESOURCE_CONFLICT
+            - INTERNAL_SERVER_ERROR
+          description: Código de error legible por máquina (ADR-0012).
         message:
           type: string
           description: Mensaje descriptivo para el desarrollador/cliente.
