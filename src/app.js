@@ -4,13 +4,18 @@ import { errorHandler, notFoundHandler } from './shared/http/error-handler.js';
 import { requestId } from './shared/http/request-id.js';
 import { createLogger } from './shared/logger.js';
 import { createInstrumentSearchRepository } from './shared/persistence/instrument-search-repository.js';
+import { createMarketDataRepository } from './shared/persistence/market-data-repository.js';
+import { createPortfolioRepository } from './shared/persistence/portfolio-repository.js';
 import { registerHealthRoute } from './features/health/get-health/route.js';
 import { registerInstrumentSearchRoute } from './features/instruments/search-instruments/route.js';
+import { registerGetPortfolioRoute } from './features/users/get-portfolio/route.js';
 
 /**
  * @typedef {import('./config.js').AppConfig} AppConfig
  * @typedef {import('./shared/ports.js').DatabaseHealthReader} DatabaseHealthReader
  * @typedef {import('./shared/ports.js').InstrumentSearchReader} InstrumentSearchReader
+ * @typedef {import('./shared/ports.js').PortfolioReader} PortfolioReader
+ * @typedef {import('./shared/ports.js').LatestMarketDataReader} LatestMarketDataReader
  * @typedef {object} AppComponents
  * @property {import('express').Express} app
  * @property {PrismaClient} prisma
@@ -18,6 +23,8 @@ import { registerInstrumentSearchRoute } from './features/instruments/search-ins
  * @property {(app: import('express').Express) => void} [registerRoutes]
  * @property {DatabaseHealthReader} [healthReader]
  * @property {InstrumentSearchReader} [instrumentSearchReader]
+ * @property {PortfolioReader} [portfolioReader]
+ * @property {LatestMarketDataReader} [marketDataReader]
  * @property {import('pino').Logger} [logger]
  */
 
@@ -32,6 +39,8 @@ export const createApp = (
     registerRoutes = () => {},
     healthReader,
     instrumentSearchReader,
+    portfolioReader,
+    marketDataReader,
     logger = createLogger(),
   } = {},
 ) => {
@@ -52,6 +61,11 @@ export const createApp = (
   registerInstrumentSearchRoute(
     app,
     instrumentSearchReader ?? createInstrumentSearchRepository(prisma),
+  );
+  registerGetPortfolioRoute(
+    app,
+    portfolioReader ?? createPortfolioRepository(prisma),
+    marketDataReader ?? createMarketDataRepository(prisma),
   );
   registerRoutes(app);
   app.use(notFoundHandler());
