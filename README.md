@@ -132,11 +132,40 @@ pg_restore --clean --if-exists --no-owner --no-acl \
   --dbname="$RESTORE_DATABASE_URL" "$BACKUP_FILE"
 ```
 
-Record the actual backup location and checksum, delivery schema action, seed
-and smoke-test results, and restore steps after the gated delivery is approved
-and completed. The hosted S2 result is recorded in
-[`docs/AI_USAGE_LOG.md`](docs/AI_USAGE_LOG.md); no delivery backup is implied
-by the local S1 checks.
+The hosted S2 result is recorded in
+[`docs/AI_USAGE_LOG.md`](docs/AI_USAGE_LOG.md).
+
+### Delivery evidence (provided database, 2026-10-25)
+
+Commands were run by the developer in a local shell with the connection string
+exported only there; it was never written to `.env`, source control, or logs.
+
+- **Backup:** custom-format `pg_dump --clean --if-exists --no-owner --no-acl`
+  stored outside the repository as `cocos-provided-backup.dump`; verified with
+  `pg_restore --list`. SHA-256:
+  `f88d8ee0981213e77d99959ee0f54c49a75755d6c0c57ac979f9c78a15aa4596`.
+  An earlier dump checksum reported before the gate
+  (`6c6e4bcc…3eca`) is superseded by this verified dump.
+- **Pre-delivery inspection (read-only):** migration history already recorded
+  `20261023000000_normalize_schema` (baseline not needed, no
+  `migrate resolve`). The ADR-0003 indexes `orders_user_instrument_filled_idx`,
+  `marketdata_instrument_market_date_desc_idx`, and the unique
+  `(instrument_id, market_date)` index existed, so no index changes were made.
+  Counts: 4 users, 66 instruments, 11 orders, 126 marketdata rows.
+- **Schema action:** `DATABASE_TEST="$PROVIDED_DATABASE_URL" npm run db:migrate`
+  applied only `20261024000000_rejected_zero_size_orders` (ADR-0015).
+- **Seed:** `npm run db:seed` reloaded the provided seed as-is (not corrected;
+  the legacy BMA SELL leaves user 1 with a net position of -10, per ADR-0004).
+- **Smoke (API started with `DATABASE_LOCAL="$PROVIDED_DATABASE_URL"`):**
+  `/health` 200 `{"status":"ok"}`; `/api/instruments?search=banco` 200 with four
+  matches; `/api/users/1/portfolio` 200 (`totalValue` 889756, `availableCash`
+  753000); `POST /api/orders` with `userId` 99999999 returned 404 `NOT_FOUND`.
+  Every response carried `X-Request-Id`. Afterwards the orders table still held
+  11 rows, none for user 99999999.
+- **Restore:** to an isolated recovery database or an explicitly approved
+  target, use the `pg_restore --clean --if-exists --no-owner --no-acl`
+  command above with `RESTORE_DATABASE_URL`. A restore into a recovery target
+  was not exercised in this session; only `pg_restore --list` was verified.
 
 ## Architecture decision records
 
