@@ -1,5 +1,6 @@
 import Decimal from 'decimal.js';
 import { NotFoundError } from '../../../shared/errors.js';
+import { calculateAvailableCash } from '../../../shared/policies/calculate-available-cash.js';
 import { calculatePerformance } from '../../../shared/policies/portfolio-performance.js';
 import { portfolioResponseSchema } from './schema.js';
 
@@ -29,21 +30,14 @@ export const createGetPortfolio = ({ portfolioReader, marketDataReader }) => asy
   }
 
   const filledOrders = await portfolioReader.getFilledOrders(userId);
-  let cash = new Decimal(0);
+  const cash = calculateAvailableCash(filledOrders);
   const positionsByInstrument = new Map();
 
   for (const order of filledOrders) {
     const { instrument, size } = order;
     const signedSize = new Decimal(size).mul(orderSign(order));
     if (instrument.type === 'MONEDA') {
-      cash = cash.plus(signedSize);
       continue;
-    }
-    const tradeValue = new Decimal(size).mul(order.price);
-    if (order.side === 'BUY') {
-      cash = cash.minus(tradeValue);
-    } else if (order.side === 'SELL') {
-      cash = cash.plus(tradeValue);
     }
 
     const position = positionsByInstrument.get(instrument.id) ?? {

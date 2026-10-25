@@ -21,13 +21,41 @@ describe('order request schema', () => {
     })).toMatchObject({ amount: 10.25 });
   });
 
+  test('rejects size less than or equal to zero', () => {
+    for (const size of [0, -1]) {
+      expect(orderRequestSchema.safeParse({ ...validRequest, size }).success).toBe(false);
+    }
+  });
+
+  test('rejects non-integer size', () => {
+    expect(orderRequestSchema.safeParse({ ...validRequest, size: 1.5 }).success).toBe(false);
+  });
+
+  test('rejects amount less than or equal to zero', () => {
+    for (const amount of [0, -1]) {
+      expect(orderRequestSchema.safeParse({
+        ...validRequest,
+        size: undefined,
+        amount,
+      }).success).toBe(false);
+    }
+  });
+
+  test('rejects requests that provide both size and amount', () => {
+    expect(orderRequestSchema.safeParse({
+      ...validRequest,
+      amount: 10,
+    }).success).toBe(false);
+  });
+
+  test('rejects requests that provide neither size nor amount', () => {
+    expect(orderRequestSchema.safeParse({
+      ...validRequest,
+      size: undefined,
+    }).success).toBe(false);
+  });
+
   test.each([
-    ['neither size nor amount', { size: undefined }],
-    ['both size and amount', { size: 1, amount: 10 }],
-    ['zero size', { size: 0 }],
-    ['fractional size', { size: 1.5 }],
-    ['zero amount', { amount: 0 }],
-    ['negative amount', { amount: -1 }],
     ['price on MARKET', { price: 10 }],
     ['unknown field', { privateField: 'value' }],
   ])('rejects %s', (_label, fields) => {

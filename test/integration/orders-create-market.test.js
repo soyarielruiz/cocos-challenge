@@ -208,4 +208,25 @@ describe('POST /api/orders MARKET', () => {
     const noInstrument = await submit({ ...base, instrumentId: 999999 }).expect(404);
     expect(noInstrument.body.code).toBe('NOT_FOUND');
   });
+
+  test.each([
+    ['zero size', { size: 0 }],
+    ['negative size', { size: -1 }],
+    ['non-integer size', { size: 1.5 }],
+    ['nonpositive amount', { size: undefined, amount: 0 }],
+    ['both size and amount', { amount: 10 }],
+    ['neither size nor amount', { size: undefined }],
+  ])('returns 400 INVALID_REQUEST for %s', async (_label, fields) => {
+    const response = await submit({
+      userId: 1,
+      instrumentId: 1,
+      side: 'BUY',
+      type: 'MARKET',
+      size: 1,
+      ...fields,
+    }).expect(400);
+
+    expect(response.body.code).toBe('INVALID_REQUEST');
+    expect(response.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
+  });
 });

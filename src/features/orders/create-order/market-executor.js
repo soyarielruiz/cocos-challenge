@@ -1,5 +1,6 @@
 import Decimal from 'decimal.js';
 import { InvalidRequestError } from '../../../shared/errors.js';
+import { calculateAvailableCash } from '../../../shared/policies/calculate-available-cash.js';
 import { orderResponseSchema } from './schema.js';
 
 /**
@@ -8,31 +9,6 @@ import { orderResponseSchema } from './schema.js';
  * @typedef {import('../../../shared/ports.js').OrderExecutionContext} OrderExecutionContext
  * @typedef {import('./schema.js').OrderResponse} OrderResponse
  */
-
-/**
- * @param {import('../../../shared/ports.js').PortfolioOrder[]} orders
- * @returns {Decimal}
- */
-const availableCash = (orders) => orders.reduce((cash, order) => {
-  const { instrument, side, size, price } = order;
-  if (instrument.type === 'MONEDA') {
-    if (side === 'CASH_IN') {
-      return cash.plus(size);
-    }
-    if (side === 'CASH_OUT') {
-      return cash.minus(size);
-    }
-    return cash;
-  }
-  const tradeValue = new Decimal(size).mul(price);
-  if (side === 'BUY') {
-    return cash.minus(tradeValue);
-  }
-  if (side === 'SELL') {
-    return cash.plus(tradeValue);
-  }
-  return cash;
-}, new Decimal(0));
 
 /**
  * @param {object} dependencies
@@ -67,7 +43,7 @@ export const createMarketExecutor = ({ orderRepository, marketDataReader }) => (
       status = 'REJECTED';
     } else if (request.side !== 'CASH_IN') {
       const filledOrders = await orderRepository.getFilledOrders(request.userId, { tx });
-      const cash = availableCash(filledOrders);
+      const cash = calculateAvailableCash(filledOrders);
       const requiredCash = isCashInstrument
         ? new Decimal(size)
         : new Decimal(size).mul(referencePrice);
