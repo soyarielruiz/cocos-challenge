@@ -325,6 +325,8 @@ components:
         price:
           type: number
           format: double
+          minimum: 0
+          exclusiveMinimum: true
           description: Obligatorio para tipo LIMIT. Prohibido para tipo MARKET.
       oneOf:
         - required: [size]
