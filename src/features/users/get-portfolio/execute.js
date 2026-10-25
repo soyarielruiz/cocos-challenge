@@ -39,6 +39,12 @@ export const createGetPortfolio = ({ portfolioReader, marketDataReader }) => asy
       cash = cash.plus(signedSize);
       continue;
     }
+    const tradeValue = new Decimal(size).mul(order.price);
+    if (order.side === 'BUY') {
+      cash = cash.minus(tradeValue);
+    } else if (order.side === 'SELL') {
+      cash = cash.plus(tradeValue);
+    }
 
     const position = positionsByInstrument.get(instrument.id) ?? {
       instrument,

@@ -36,7 +36,7 @@ const orders = [
 ];
 
 describe('get portfolio use case', () => {
-  test('derives cash, quantity, market value and performance from filled orders', async () => {
+  test('derives cash net of filled asset trades and portfolio values from filled orders', async () => {
     const execute = createGetPortfolio({
       portfolioReader: {
         findUser: async () => ({ id: 7 }),
@@ -53,8 +53,8 @@ describe('get portfolio use case', () => {
     const result = await execute(7);
 
     expect(result.userId).toBe(7);
-    expect(result.availableCash).toBe(800);
-    expect(result.totalValue).toBe(2600);
+    expect(result.availableCash).toBe(-700);
+    expect(result.totalValue).toBe(1100);
     expect(result.positions).toEqual([
       {
         ticker: 'ABC',

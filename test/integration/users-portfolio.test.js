@@ -21,15 +21,15 @@ afterAll(async () => {
 });
 
 describe('GET /api/users/:userId/portfolio', () => {
-  test('returns seed-derived values using only filled orders and each latest market price', async () => {
+  test('returns seed-derived values using only filled orders, their prices and each latest market price', async () => {
     const response = await request(app)
       .get('/api/users/1/portfolio')
       .expect(200);
 
     expect(response.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
     expect(response.body.userId).toBe(1);
-    expect(response.body.availableCash).toBe(900000);
-    expect(response.body.totalValue).toBe(1036756);
+    expect(response.body.availableCash).toBe(753000);
+    expect(response.body.totalValue).toBe(889756);
     expect(response.body.positions).toHaveLength(3);
     expect(response.body.positions.map(({ ticker }) => ticker)).toEqual([
       'BMA',
