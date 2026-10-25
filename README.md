@@ -79,8 +79,8 @@ npx --yes @redocly/cli lint docs/api/openapi.yaml
 ```
 
 Jest enforces at least 80% line coverage for each feature `execute.js`, both
-order executors, and every shared policy. Integration tests use the local
-Docker Compose PostgreSQL database and real Prisma.
+order executors, and every shared policy. Integration tests use real Prisma
+against `DATABASE_LOCAL` when `DATABASE_TEST` is unset.
 
 The Postman collection is generated from the OpenAPI contract and is stored
 at [`postman/cocos-challenge.postman_collection.json`](postman/cocos-challenge.postman_collection.json).
@@ -89,10 +89,25 @@ Import that file into Postman and set its `baseUrl` variable to
 
 ## Database stages and recovery
 
-Routine development and tests use only `DATABASE_LOCAL` and the ephemeral
-local PostgreSQL service. Hosted integration validation uses an isolated Neon
-branch through `DATABASE_TEST`, never the development branch. The
-challenge-provided database is reserved for delivery.
+Routine development and tests use the ephemeral local PostgreSQL service
+through `DATABASE_LOCAL` when `DATABASE_TEST` is unset. For hosted integration
+validation, use a disposable Neon project owned by the developer and separate
+from both the development project and the project containing the
+challenge-provided database. Set `DATABASE_TEST` in the shell for that run;
+Jest and the `db:validate`, `db:migrate`, and `db:seed` scripts select it when
+set and otherwise fall back to `DATABASE_LOCAL`. Keep `.env` unchanged. Load
+deterministic data only with the repository's canonical seed script. Run the
+complete suite with:
+
+```sh
+export DATABASE_TEST='<disposable Neon project URI>'
+npm run db:validate && npm run db:migrate && npm run db:seed && npm test
+```
+
+Use a TLS-required connection and verify TLS and PostgreSQL major version 18.
+Record the outcome without logging credentials. The developer deletes the
+disposable project after story review. The challenge-provided database is
+reserved for delivery.
 
 Before any delivery operation that can mutate the provided database:
 
@@ -101,13 +116,12 @@ Before any delivery operation that can mutate the provided database:
 2. Create a custom-format dump outside the repository and verify it:
 
    ```sh
-   pg_dump --format=custom --no-owner --no-acl \
+   pg_dump --format=custom --clean --if-exists --no-owner --no-acl \
      --file="$BACKUP_FILE" "$PROVIDED_DATABASE_URL"
    pg_restore --list "$BACKUP_FILE" >/dev/null
    openssl dgst -sha256 "$BACKUP_FILE"
    ```
-3. Create a Neon safety branch from the provided database's main branch.
-   Stop and wait for explicit approval before baseline, migration, seeding,
+3. Stop and wait for explicit approval before baseline, migration, seeding,
    smoke tests, or any other access that can mutate the provided database.
 
 To restore, use an isolated recovery database or an explicitly approved
@@ -118,17 +132,20 @@ pg_restore --clean --if-exists --no-owner --no-acl \
   --dbname="$RESTORE_DATABASE_URL" "$BACKUP_FILE"
 ```
 
-Record the actual backup location and checksum, safety-branch identity,
-delivery schema action, seed and smoke-test results, and restore steps after
-the gated delivery is approved and completed. No delivery backup or hosted
-validation result is implied by the local S1 checks.
+Record the actual backup location and checksum, delivery schema action, seed
+and smoke-test results, and restore steps after the gated delivery is approved
+and completed. The hosted S2 result is recorded in
+[`docs/AI_USAGE_LOG.md`](docs/AI_USAGE_LOG.md); no delivery backup is implied
+by the local S1 checks.
 
 ## Architecture decision records
 
 - [ADR-0001](docs/adrs/ADR-0001-stack-express-javascript.md),
   [ADR-0010](docs/adrs/ADR-0010-three-stage-database-environment.md), and
   [ADR-0011](docs/adrs/ADR-0011-graceful-shutdown.md): stack, configuration,
-  database stages, and shutdown.
+  database stages, and shutdown. ADR-0016 amends hosted validation isolation
+  and the stage-3 recovery point:
+  [ADR-0016](docs/adrs/ADR-0016-aislamiento-validacion-proyecto-.md).
 - [ADR-0002](docs/adrs/ADR-0002-estructura-features-y-strategy.md): feature
   boundaries and order-executor strategy.
 - [ADR-0004](docs/adrs/ADR-0004-posiciones-derivadas-de-orders.md),
