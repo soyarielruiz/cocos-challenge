@@ -7,8 +7,27 @@ import { orderResponseSchema } from './schema.js';
  * @typedef {import('../../../shared/ports.js').OrderRepository} OrderRepository
  * @typedef {import('../../../shared/ports.js').LatestMarketDataReader} LatestMarketDataReader
  * @typedef {import('../../../shared/ports.js').OrderExecutionContext} OrderExecutionContext
+ * @typedef {import('../../../shared/ports.js').PortfolioOrder} PortfolioOrder
  * @typedef {import('./schema.js').OrderResponse} OrderResponse
  */
+
+/**
+ * @param {PortfolioOrder[]} filledOrders
+ * @param {number} instrumentId
+ * @returns {Decimal}
+ */
+const calculateAvailablePosition = (filledOrders, instrumentId) => filledOrders.reduce((position, order) => {
+  if (order.instrument.id !== instrumentId) {
+    return position;
+  }
+  if (order.side === 'BUY') {
+    return position.plus(order.size);
+  }
+  if (order.side === 'SELL') {
+    return position.minus(order.size);
+  }
+  return position;
+}, new Decimal(0));
 
 /**
  * @param {object} dependencies
@@ -43,12 +62,18 @@ export const createMarketExecutor = ({ orderRepository, marketDataReader }) => (
       status = 'REJECTED';
     } else if (request.side !== 'CASH_IN') {
       const filledOrders = await orderRepository.getFilledOrders(request.userId, { tx });
-      const cash = calculateAvailableCash(filledOrders);
-      const requiredCash = isCashInstrument
-        ? new Decimal(size)
-        : new Decimal(size).mul(referencePrice);
-      if (requiredCash.gt(cash)) {
-        status = 'REJECTED';
+      if (request.side === 'SELL') {
+        if (new Decimal(size).gt(calculateAvailablePosition(filledOrders, instrument.id))) {
+          status = 'REJECTED';
+        }
+      } else {
+        const cash = calculateAvailableCash(filledOrders);
+        const requiredCash = isCashInstrument
+          ? new Decimal(size)
+          : new Decimal(size).mul(referencePrice);
+        if (requiredCash.gt(cash)) {
+          status = 'REJECTED';
+        }
       }
     }
 

@@ -41,9 +41,6 @@ export const createOrder = ({ orderRepository, transactionManager, marketDataRea
         `instrumentId: ${isCashSide ? 'cash operations require MONEDA' : 'BUY and SELL require a security instrument'}`,
       ]);
     }
-    if (request.side === 'SELL') {
-      throw new InvalidRequestError(['side: SELL orders are not supported by this session yet']);
-    }
 
     const executor = executors.get(request.type);
     if (!executor) {

@@ -102,6 +102,34 @@ describe('create order use case', () => {
     expect(created[0].price.toString()).toBe('10');
   });
 
+  test('fills a MARKET SELL when derived positions are sufficient', async () => {
+    const { execute, created } = build({
+      filledOrders: [
+        { side: 'BUY', size: 5, price: '10', instrument },
+        { side: 'SELL', size: 2, price: '9', instrument },
+      ],
+    });
+
+    const order = await execute(marketRequest({ side: 'SELL', size: 3 }));
+
+    expect(order).toMatchObject({ side: 'SELL', size: 3, price: 10, status: 'FILLED' });
+    expect(created[0]).toMatchObject({ side: 'SELL', size: 3, status: 'FILLED' });
+  });
+
+  test('persists a MARKET SELL as REJECTED when derived positions are insufficient', async () => {
+    const { execute, created } = build({
+      filledOrders: [
+        { side: 'BUY', size: 5, price: '10', instrument },
+        { side: 'SELL', size: 3, price: '9', instrument },
+      ],
+    });
+
+    const order = await execute(marketRequest({ side: 'SELL', size: 3 }));
+
+    expect(order).toMatchObject({ side: 'SELL', size: 3, status: 'REJECTED' });
+    expect(created[0]).toMatchObject({ side: 'SELL', size: 3, status: 'REJECTED' });
+  });
+
   test('floors amount with decimal-safe arithmetic and persists a zero-size result as REJECTED', async () => {
     const { execute, created } = build({
       filledOrders: [
@@ -166,7 +194,6 @@ describe('create order use case', () => {
   test.each([
     ['cash operation on a security', { side: 'CASH_IN' }],
     ['BUY targeting MONEDA', { side: 'BUY', instrumentId: ars.id }],
-    ['SELL before its session is implemented', { side: 'SELL' }],
     ['LIMIT before its session is implemented', { type: 'LIMIT', price: 10 }],
   ])('rejects %s when it is a contract error', async (_label, overrides) => {
     const { execute, created } = build({ selectedInstrument: overrides.instrumentId === ars.id ? ars : instrument });
