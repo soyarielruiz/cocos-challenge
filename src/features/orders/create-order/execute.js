@@ -20,7 +20,7 @@ import { createMarketExecutor } from './market-executor.js';
 export const createOrder = ({ orderRepository, transactionManager, marketDataReader }) => {
   const executors = new Map([
     ['MARKET', createMarketExecutor({ orderRepository, marketDataReader })],
-    ['LIMIT', createLimitExecutor()],
+    ['LIMIT', createLimitExecutor({ orderRepository })],
   ]);
 
   return async (request) => transactionManager.withUserLock(request.userId, async (tx) => {

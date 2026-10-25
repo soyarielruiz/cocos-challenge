@@ -71,4 +71,22 @@ describe('order request schema', () => {
       price: 1,
     })).toThrow();
   });
+
+  test('parses a LIMIT request with a positive price', () => {
+    const request = {
+      ...validRequest,
+      type: 'LIMIT',
+      price: 12.5,
+    };
+
+    expect(orderRequestSchema.parse(request)).toEqual(request);
+  });
+
+  test.each([undefined, 0, -1])('rejects LIMIT with price %s', (price) => {
+    expect(orderRequestSchema.safeParse({
+      ...validRequest,
+      type: 'LIMIT',
+      price,
+    }).success).toBe(false);
+  });
 });

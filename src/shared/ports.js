@@ -62,6 +62,7 @@
  * @property {'MARKET' | 'LIMIT'} type
  * @property {number} [size]
  * @property {number} [amount]
+ * @property {number} [price]
  */
 
 /**

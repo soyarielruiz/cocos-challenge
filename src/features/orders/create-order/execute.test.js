@@ -88,6 +88,22 @@ describe('create order use case', () => {
     expect(calls.at(-1)[2]).toEqual({ tx: { transaction: true } });
   });
 
+  test('persists a LIMIT order as NEW without reading market data or balances', async () => {
+    const { execute, created, calls } = build();
+
+    const result = await execute(marketRequest({
+      type: 'LIMIT',
+      size: 2,
+      price: 8,
+    }));
+
+    expect(result).toMatchObject({ type: 'LIMIT', size: 2, price: 8, status: 'NEW' });
+    expect(created[0]).toMatchObject({ type: 'LIMIT', size: 2, status: 'NEW' });
+    expect(created[0].price.toString()).toBe('8');
+    expect(calls.some(([name]) => name === 'getFilledOrders')).toBe(false);
+    expect(calls.some(([name]) => name === 'getLatestPrices')).toBe(false);
+  });
+
   test('persists an insufficient-cash BUY as REJECTED', async () => {
     const { execute, created } = build({
       filledOrders: [
@@ -194,7 +210,6 @@ describe('create order use case', () => {
   test.each([
     ['cash operation on a security', { side: 'CASH_IN' }],
     ['BUY targeting MONEDA', { side: 'BUY', instrumentId: ars.id }],
-    ['LIMIT before its session is implemented', { type: 'LIMIT', price: 10 }],
   ])('rejects %s when it is a contract error', async (_label, overrides) => {
     const { execute, created } = build({ selectedInstrument: overrides.instrumentId === ars.id ? ars : instrument });
 
