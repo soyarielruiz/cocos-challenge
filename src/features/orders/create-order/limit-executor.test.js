@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import Decimal from 'decimal.js';
+import { InvalidRequestError } from '../../../shared/errors.js';
 import { createLimitExecutor } from './limit-executor.js';
 
 const instrument = {
@@ -88,5 +89,27 @@ describe('LIMIT order executor', () => {
 
     expect(zero).toMatchObject({ size: 0, price: 0.3, status: 'REJECTED' });
     expect(created.map(({ data }) => data.status)).toEqual(['NEW', 'REJECTED']);
+  });
+
+  test('rejects incomplete LIMIT execution requests without persisting an order', async () => {
+    const { executor, created } = build();
+
+    await expect(executor.execute(execution({
+      userId: 1,
+      instrumentId: instrument.id,
+      side: 'BUY',
+      type: 'LIMIT',
+      size: 10,
+    }))).rejects.toBeInstanceOf(InvalidRequestError);
+
+    await expect(executor.execute(execution({
+      userId: 1,
+      instrumentId: instrument.id,
+      side: 'BUY',
+      type: 'LIMIT',
+      price: 12.5,
+    }))).rejects.toBeInstanceOf(InvalidRequestError);
+
+    expect(created).toHaveLength(0);
   });
 });

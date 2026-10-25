@@ -18,6 +18,19 @@
   "prisma": {
     "seed": "node prisma/seed.js"
   },
+  "jest": {
+    "coverageThreshold": {
+      "src/features/**/execute.js": {
+        "lines": 80
+      },
+      "src/features/orders/create-order/*executor.js": {
+        "lines": 80
+      },
+      "src/shared/policies/**/*.js": {
+        "lines": 80
+      }
+    }
+  },
   "dependencies": {
     "@prisma/client": "^5.22.0",
     "decimal.js": "^10.6.0",

@@ -17,6 +17,8 @@ servers:
   - url: http://localhost:3000
     description: Servidor de desarrollo local
 
+security: []
+
 paths:
   /health:
     get:
@@ -50,6 +52,7 @@ paths:
           schema:
             type: string
             minLength: 1
+            example: banco
           description: Término de búsqueda. Evalúa con ILIKE sobre ticker y nombre; los matches exactos de ticker se ordenan primero.
       responses:
         '200':
@@ -85,6 +88,7 @@ paths:
           required: true
           schema:
             type: integer
+            example: 1
       responses:
         '200':
           description: Portfolio calculado en tiempo real (derivado, no materializado).
@@ -139,6 +143,16 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/OrderRequest'
+            examples:
+              limitBuy:
+                summary: Create a pending LIMIT buy for the cancellation example
+                value:
+                  userId: 1
+                  instrumentId: 1
+                  side: BUY
+                  type: LIMIT
+                  size: 1
+                  price: 100
       responses:
         '201':
           description: Orden creada exitosamente (status puede ser FILLED, NEW o REJECTED).
@@ -202,6 +216,7 @@ paths:
           required: true
           schema:
             type: integer
+            example: 1
       requestBody:
         required: true
         content:
@@ -214,6 +229,8 @@ paths:
                 userId:
                   type: integer
                   description: ID del usuario que solicita la cancelación (validación de propiedad).
+            example:
+              userId: 1
       responses:
         '200':
           description: Orden cancelada exitosamente.
