@@ -15,6 +15,7 @@ const { app, prisma } = createApp({
 const fixtureEmail = 'limit-order-s1@example.test';
 const fixtureTicker = 'LIMS1';
 let user;
+let foreignUser;
 let instrument;
 
 const submit = (body) => request(app).post('/api/orders').send(body);
@@ -23,6 +24,9 @@ beforeAll(async () => {
   await prisma.$connect();
   user = await prisma.user.create({
     data: { email: fixtureEmail, accountNumber: 'LIMIT-S1' },
+  });
+  foreignUser = await prisma.user.create({
+    data: { email: 'limit-order-s2-foreign@example.test', accountNumber: 'LIMIT-S2-FOREIGN' },
   });
   instrument = await prisma.instrument.create({
     data: {
@@ -37,6 +41,10 @@ afterAll(async () => {
   if (user) {
     await prisma.order.deleteMany({ where: { userId: user.id } });
     await prisma.user.delete({ where: { id: user.id } });
+  }
+  if (foreignUser) {
+    await prisma.order.deleteMany({ where: { userId: foreignUser.id } });
+    await prisma.user.delete({ where: { id: foreignUser.id } });
   }
   if (instrument) {
     await prisma.marketData.deleteMany({ where: { instrumentId: instrument.id } });
@@ -141,5 +149,81 @@ describe('POST /api/orders LIMIT', () => {
       price: 12.5,
     }).expect(404);
     expect(missingInstrument.body.code).toBe('NOT_FOUND');
+  });
+});
+
+describe('POST /api/orders/:id/cancel', () => {
+  const createOrder = (overrides = {}) => prisma.order.create({
+    data: {
+      userId: user.id,
+      instrumentId: instrument.id,
+      size: 1,
+      price: 12.5,
+      type: 'LIMIT',
+      side: 'BUY',
+      status: 'NEW',
+      ...overrides,
+    },
+  });
+
+  const cancel = (id, userId = user.id) => request(app)
+    .post(`/api/orders/${id}/cancel`)
+    .send({ userId });
+
+  test('cancels and persists an owned NEW LIMIT order', async () => {
+    const pending = await createOrder();
+
+    const response = await cancel(pending.id).expect(200);
+
+    expect(response.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
+    expect(response.body).toMatchObject({
+      id: pending.id,
+      userId: user.id,
+      type: 'LIMIT',
+      status: 'CANCELLED',
+    });
+    expect(await prisma.order.findUnique({ where: { id: pending.id } }))
+      .toMatchObject({ status: 'CANCELLED' });
+  });
+
+  test('returns the same non-disclosing 404 for missing and foreign orders', async () => {
+    const foreign = await createOrder({ userId: foreignUser.id });
+
+    const foreignResponse = await cancel(foreign.id).expect(404);
+    const missingResponse = await cancel(foreign.id + 100000).expect(404);
+
+    expect(foreignResponse.body.code).toBe('NOT_FOUND');
+    expect(foreignResponse.body).toEqual(missingResponse.body);
+    expect(foreignResponse.headers['x-request-id']).toBeDefined();
+    expect(missingResponse.headers['x-request-id']).toBeDefined();
+    expect(await prisma.order.findUnique({ where: { id: foreign.id } }))
+      .toMatchObject({ status: 'NEW' });
+  });
+
+  test.each(['FILLED', 'REJECTED', 'CANCELLED'])(
+    'returns 409 ORDER_NOT_CANCELLABLE for a %s order',
+    async (status) => {
+      const unavailable = await createOrder({ status });
+
+      const response = await cancel(unavailable.id).expect(409);
+
+      expect(response.body.code).toBe('ORDER_NOT_CANCELLABLE');
+      expect(response.headers['x-request-id']).toBeDefined();
+      expect(await prisma.order.findUnique({ where: { id: unavailable.id } }))
+        .toMatchObject({ status });
+    },
+  );
+
+  test('returns safe validation errors with request IDs for invalid IDs and bodies', async () => {
+    const invalidId = await cancel('not-an-id').expect(400);
+    const invalidBody = await request(app)
+      .post('/api/orders/1/cancel')
+      .send({ userId: 'not-an-integer' })
+      .expect(400);
+
+    for (const response of [invalidId, invalidBody]) {
+      expect(response.body.code).toBe('INVALID_REQUEST');
+      expect(response.headers['x-request-id']).toBeDefined();
+    }
   });
 });

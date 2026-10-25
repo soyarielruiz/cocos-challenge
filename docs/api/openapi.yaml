@@ -227,12 +227,40 @@ paths:
                 $ref: '#/components/schemas/Order'
         '404':
           description: Orden no encontrada o no pertenece al usuario.
+          headers:
+            X-Request-Id:
+              schema:
+                type: string
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
           description: "Conflicto de dominio: la orden no está en estado NEW."
+          headers:
+            X-Request-Id:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: Error de validación de los parámetros o del cuerpo.
+          headers:
+            X-Request-Id:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error interno genérico sin detalles de persistencia.
+          headers:
+            X-Request-Id:
+              schema:
+                type: string
           content:
             application/json:
               schema:

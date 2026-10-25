@@ -32,5 +32,19 @@ export const createOrderRepository = (prisma) => {
       },
     }),
     create: (data, options) => client(options).order.create({ data }),
+    findOwnedOrder: (orderId, userId, options) => client(options).order.findFirst({
+      where: { id: orderId, userId },
+    }),
+    cancelIfNew: async (orderId, userId, options) => {
+      const database = client(options);
+      const result = await database.order.updateMany({
+        where: { id: orderId, userId, status: 'NEW' },
+        data: { status: 'CANCELLED' },
+      });
+      if (result.count !== 1) {
+        return null;
+      }
+      return database.order.findUnique({ where: { id: orderId } });
+    },
   };
 };

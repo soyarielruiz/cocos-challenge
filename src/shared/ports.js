@@ -66,6 +66,19 @@
  */
 
 /**
+ * @typedef {object} PersistedOrder
+ * @property {number} id
+ * @property {number} userId
+ * @property {number} instrumentId
+ * @property {number} size
+ * @property {string | number | import('decimal.js').default} price
+ * @property {'MARKET' | 'LIMIT'} type
+ * @property {'BUY' | 'SELL' | 'CASH_IN' | 'CASH_OUT'} side
+ * @property {'NEW' | 'FILLED' | 'REJECTED' | 'CANCELLED'} status
+ * @property {Date} createdAt
+ */
+
+/**
  * @typedef {object} OrderExecutionContext
  * @property {OrderExecutionRequest} request
  * @property {InstrumentSummary} instrument
@@ -100,6 +113,8 @@
  *   price: import('decimal.js').default, type: string, side: string,
  *   status: string, createdAt: Date
  * }>} create
+ * @property {(orderId: number, userId: number, options?: TxOpts) => Promise<PersistedOrder | null>} findOwnedOrder
+ * @property {(orderId: number, userId: number, options?: TxOpts) => Promise<PersistedOrder | null>} cancelIfNew
  */
 
 /**

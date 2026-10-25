@@ -11,6 +11,7 @@ import { createTransactionManager } from './shared/persistence/transaction-manag
 import { registerHealthRoute } from './features/health/get-health/route.js';
 import { registerInstrumentSearchRoute } from './features/instruments/search-instruments/route.js';
 import { registerCreateOrderRoute } from './features/orders/create-order/route.js';
+import { registerCancelOrderRoute } from './features/orders/cancel-order/route.js';
 import { registerGetPortfolioRoute } from './features/users/get-portfolio/route.js';
 
 /**
@@ -59,6 +60,8 @@ export const createApp = (
     },
   });
   const activeMarketDataReader = marketDataReader ?? createMarketDataRepository(prisma);
+  const activeOrderRepository = orderRepository ?? createOrderRepository(prisma);
+  const activeTransactionManager = transactionManager ?? createTransactionManager(prisma);
 
   const app = express();
   app.use(requestId(logger));
@@ -79,9 +82,14 @@ export const createApp = (
   );
   registerCreateOrderRoute(
     app,
-    orderRepository ?? createOrderRepository(prisma),
-    transactionManager ?? createTransactionManager(prisma),
+    activeOrderRepository,
+    activeTransactionManager,
     activeMarketDataReader,
+  );
+  registerCancelOrderRoute(
+    app,
+    activeOrderRepository,
+    activeTransactionManager,
   );
   registerRoutes(app);
   app.use(notFoundHandler());
