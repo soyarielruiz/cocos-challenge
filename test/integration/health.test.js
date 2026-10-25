@@ -3,17 +3,10 @@ import 'dotenv/config';
 import request from 'supertest';
 import { createApp } from '../../src/app.js';
 
-const healthTestTarget = process.env.HEALTH_TEST_TARGET ?? 'local';
-const databaseUrl = healthTestTarget === 'neon'
-  ? process.env.DATABASE_TEST
-  : process.env.DATABASE_LOCAL;
+const databaseUrl = process.env.DATABASE_LOCAL;
 
 if (!databaseUrl) {
-  throw new Error(
-    healthTestTarget === 'neon'
-      ? 'DATABASE_TEST must point to an isolated Neon test branch.'
-      : 'DATABASE_LOCAL must point to the local development database.',
-  );
+  throw new Error('DATABASE_TEST or DATABASE_LOCAL must point to the test database.');
 }
 
 const { app, prisma } = createApp({

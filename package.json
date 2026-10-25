@@ -10,15 +10,18 @@
     "db:baseline": "prisma db execute --file prisma/migrations/20261023000000_normalize_schema/migration.sql && prisma migrate resolve --applied 20261023000000_normalize_schema",
     "db:local:up": "docker compose up -d postgres",
     "db:local:down": "docker compose down",
-    "db:validate": "prisma validate",
-    "db:migrate": "prisma migrate deploy",
-    "db:seed": "prisma db seed",
+    "db:validate": "node scripts/prisma.js validate",
+    "db:migrate": "node scripts/prisma.js migrate deploy",
+    "db:seed": "node scripts/prisma.js db seed",
     "test:db": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand test/integration/database-contract.test.js"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
   },
   "jest": {
+    "setupFiles": [
+      "<rootDir>/test/setup.js"
+    ],
     "coverageThreshold": {
       "src/features/**/execute.js": {
         "lines": 80

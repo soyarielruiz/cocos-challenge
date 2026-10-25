@@ -12,53 +12,56 @@ const { app, prisma } = createApp({
   port: 3000,
 });
 
+const marketIntegrationTimeout = process.env.DATABASE_TEST ? 15_000 : 5_000;
 let currency;
 let sequence = 0;
 const fixtureUserIds = [];
 const fixtureInstrumentIds = [];
-
 const createFixture = async ({ price = '20', cash = 1000, position = 0 } = {}) => {
   sequence += 1;
-  const user = await prisma.user.create({
-    data: {
-      email: `market-order-s1-${sequence}@example.test`,
-      accountNumber: `S1-${sequence}`,
-    },
-  });
+  const [user, instrument] = await Promise.all([
+    prisma.user.create({
+      data: {
+        email: `market-order-s1-${sequence}@example.test`,
+        accountNumber: `S1-${sequence}`,
+      },
+    }),
+    prisma.instrument.create({
+      data: {
+        ticker: `S1T${String(sequence).padStart(3, '0')}`,
+        name: `Order integration fixture ${sequence}`,
+        type: 'ACCIONES',
+      },
+    }),
+  ]);
   fixtureUserIds.push(user.id);
-
-  const instrument = await prisma.instrument.create({
-    data: {
-      ticker: `S1T${String(sequence).padStart(3, '0')}`,
-      name: `Order integration fixture ${sequence}`,
-      type: 'ACCIONES',
-    },
-  });
   fixtureInstrumentIds.push(instrument.id);
-  await prisma.marketData.create({
-    data: {
-      instrumentId: instrument.id,
-      high: price,
-      low: price,
-      open: price,
-      close: price,
-      previousClose: price,
-      marketDate: new Date(`2099-01-${String(sequence).padStart(2, '0')}`),
-    },
-  });
-  await prisma.order.create({
-    data: {
-      userId: user.id,
-      instrumentId: currency.id,
-      size: cash,
-      price: 1,
-      type: 'MARKET',
-      side: 'CASH_IN',
-      status: 'FILLED',
-    },
-  });
+  const fixtureOrders = [
+    prisma.marketData.create({
+      data: {
+        instrumentId: instrument.id,
+        high: price,
+        low: price,
+        open: price,
+        close: price,
+        previousClose: price,
+        marketDate: new Date(`2099-01-${String(sequence).padStart(2, '0')}`),
+      },
+    }),
+    prisma.order.create({
+      data: {
+        userId: user.id,
+        instrumentId: currency.id,
+        size: cash,
+        price: 1,
+        type: 'MARKET',
+        side: 'CASH_IN',
+        status: 'FILLED',
+      },
+    }),
+  ];
   if (position > 0) {
-    await prisma.order.create({
+    fixtureOrders.push(prisma.order.create({
       data: {
         userId: user.id,
         instrumentId: instrument.id,
@@ -68,8 +71,9 @@ const createFixture = async ({ price = '20', cash = 1000, position = 0 } = {}) =
         side: 'BUY',
         status: 'FILLED',
       },
-    });
+    }));
   }
+  await Promise.all(fixtureOrders);
 
   return { user, instrument };
 };
@@ -153,7 +157,7 @@ describe('POST /api/orders MARKET', () => {
 
     const portfolio = await request(app).get(`/api/users/${user.id}/portfolio`).expect(200);
     expect(portfolio.body.availableCash).toBe(60);
-  });
+  }, marketIntegrationTimeout);
 
   test('floors amount and persists a floored zero size as REJECTED', async () => {
     const { user, instrument } = await createFixture({ price: '0.30', cash: 10 });
@@ -171,7 +175,7 @@ describe('POST /api/orders MARKET', () => {
     expect(zero.body).toMatchObject({ size: 0, status: 'REJECTED' });
     expect(await prisma.order.findUnique({ where: { id: zero.body.id } }))
       .toMatchObject({ size: 0, status: 'REJECTED' });
-  });
+  }, marketIntegrationTimeout);
 
   test('fills integer CASH_IN and validates CASH_OUT against derived cash', async () => {
     const { user } = await createFixture({ cash: 1000 });
@@ -202,7 +206,7 @@ describe('POST /api/orders MARKET', () => {
 
     const portfolio = await request(app).get(`/api/users/${user.id}/portfolio`).expect(200);
     expect(portfolio.body.availableCash).toBe(850);
-  });
+  }, marketIntegrationTimeout);
 
   test('serializes concurrent BUYs for one user so they cannot double-spend', async () => {
     const { user, instrument } = await createFixture({ cash: 1000 });
@@ -244,7 +248,7 @@ describe('POST /api/orders MARKET', () => {
     const portfolio = await request(app).get(`/api/users/${user.id}/portfolio`).expect(200);
     expect(portfolio.body.positions).toContainEqual(expect.objectContaining({ quantity: 2 }));
     expect(portfolio.body.availableCash).toBe(960);
-  });
+  }, marketIntegrationTimeout);
 
   test('serializes concurrent SELLs for one user so they cannot oversell positions', async () => {
     const { user, instrument } = await createFixture({ cash: 1000, position: 30 });
