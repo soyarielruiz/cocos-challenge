@@ -102,3 +102,36 @@ passes.
   [ADR-0011](../adrs/ADR-0011-graceful-shutdown.md),
   [ADR-0012](../adrs/ADR-0012-taxonomia-de-errores-y-mapeo-de-db.md),
   [ADR-0013](../adrs/ADR-0013-metodo-de-costo-de-venta.md).
+
+### 2. Amend cash derivation per ADR-0014
+
+- **TDD (red-first):** Add and run failing unit tests for amended cash
+  derivation before changing the implementation. Cover cash additions from
+  `CASH_IN` and deductions from `CASH_OUT` using their `MONEDA` order sizes;
+  subtract `size × price` for FILLED security BUYs and add `size × price` for
+  FILLED security SELLs. Verify `NEW`, `REJECTED`, and `CANCELLED` orders do
+  not affect cash. Add and run failing real-Prisma integration tests against
+  local Docker Compose PostgreSQL with golden values recomputed from the
+  deterministic seed. Calculate security trade values using each order's own
+  `price` column, never the market close.
+- **Work:** Update only the portfolio use case's cash derivation per
+  ADR-0014. Keep positions, performance, daily change, and the response shape
+  unchanged.
+- **Verify:** Start local PostgreSQL and load the deterministic seed with
+  `npm run db:local:up && npm run db:validate && npm run db:migrate &&
+  npm run db:seed`, using `DATABASE_LOCAL` only. Run
+  `npm test test/integration/users-portfolio.test.js` and `npm run lint`.
+  Start the API with `npm start`, then run
+  `curl -i "http://localhost:3000/api/users/1/portfolio"`. Confirm the
+  recomputed seed-derived cash golden value, unchanged positions/performance/
+  daily-change values and response shape, and the expected request ID. Stop
+  the API with SIGINT and confirm graceful shutdown. Do not run Neon or
+  challenge-database commands in this session.
+- **Commit:** Commit this cash-derivation amendment slice separately.
+- **Citations:** [ADR-0001](../adrs/ADR-0001-stack-express-javascript.md),
+  [ADR-0004](../adrs/ADR-0004-posiciones-derivadas-de-orders.md),
+  [ADR-0008](../adrs/ADR-0008-estrategia-de-testing.md),
+  [ADR-0010](../adrs/ADR-0010-three-stage-database-environment.md),
+  [ADR-0011](../adrs/ADR-0011-graceful-shutdown.md),
+  [ADR-0012](../adrs/ADR-0012-taxonomia-de-errores-y-mapeo-de-db.md),
+  [ADR-0014](../adrs/ADR-0014-disponibilidad-pesos-por-operaciones.md).
