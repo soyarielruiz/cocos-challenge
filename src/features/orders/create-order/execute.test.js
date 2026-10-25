@@ -182,4 +182,18 @@ describe('create order use case', () => {
       .rejects.toBeInstanceOf(InvalidRequestError);
     expect(created).toHaveLength(0);
   });
+
+  test('nets prior FILLED security BUYs into available cash (ADR-0014)', async () => {
+    const { execute, created } = build({
+      filledOrders: [
+        { side: 'CASH_IN', size: 100, price: '1', instrument: ars },
+        { side: 'BUY', size: 9, price: '10', instrument },
+      ],
+    });
+
+    const order = await execute(marketRequest());
+
+    expect(order.status).toBe('REJECTED');
+    expect(created[0]).toMatchObject({ size: 2, status: 'REJECTED' });
+  });
 });
