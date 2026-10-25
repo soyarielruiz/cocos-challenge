@@ -10,12 +10,13 @@ import { Prisma } from '@prisma/client';
  * @returns {LatestMarketDataReader}
  */
 export const createMarketDataRepository = (prisma) => ({
-  getLatestPrices: async (instrumentIds) => {
+  getLatestPrices: async (instrumentIds, options) => {
+    const tx = options?.tx;
     if (instrumentIds.length === 0) {
       return [];
     }
 
-    const rows = await prisma.$queryRaw`
+    const rows = await (tx ?? prisma).$queryRaw`
       SELECT DISTINCT ON ("instrument_id")
         "instrument_id" AS "instrumentId",
         "close"::text AS "close",

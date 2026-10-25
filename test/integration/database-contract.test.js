@@ -127,7 +127,11 @@ describe('normalized database contract', () => {
     `;
     const definitions = checks.map((constraint) => constraint.definition.toLowerCase());
 
-    expect(definitions.some((definition) => definition.includes('size > 0'))).toBe(true);
+    expect(definitions.some((definition) =>
+      definition.includes('size > 0') &&
+      definition.includes('size = 0') &&
+      definition.includes('rejected'),
+    )).toBe(true);
     expect(definitions.some((definition) => /price\s*>\s*\(0\)::numeric/.test(definition))).toBe(true);
     expect(
       definitions.some(
@@ -150,6 +154,43 @@ describe('normalized database contract', () => {
           ['new', 'filled', 'rejected', 'cancelled'].every((status) => definition.includes(`'${status}'`)),
       ),
     ).toBe(true);
+  });
+
+  test('allows size zero only for REJECTED orders', async () => {
+    const instrument = await prisma.instrument.findFirst({
+      where: { type: 'MONEDA' },
+      select: { id: true },
+    });
+    const order = await prisma.order.create({
+      data: {
+        userId: 1,
+        instrumentId: instrument.id,
+        size: 0,
+        price: 1,
+        type: 'MARKET',
+        side: 'CASH_IN',
+        status: 'REJECTED',
+      },
+    });
+
+    try {
+      expect(order.size).toBe(0);
+      for (const status of ['NEW', 'FILLED', 'CANCELLED']) {
+        await expect(prisma.order.create({
+          data: {
+            userId: 1,
+            instrumentId: instrument.id,
+            size: 0,
+            price: 1,
+            type: 'MARKET',
+            side: 'CASH_IN',
+            status,
+          },
+        })).rejects.toBeDefined();
+      }
+    } finally {
+      await prisma.order.delete({ where: { id: order.id } });
+    }
   });
 
   test('has required unique and performance indexes', async () => {

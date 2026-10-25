@@ -124,7 +124,7 @@ paths:
         Crea una orden de compra o venta, o un depósito/extracción de efectivo
         (CASH_IN / CASH_OUT sobre el instrumento de type MONEDA).
         - Se debe enviar `size` (cantidad exacta) XOR `amount` (monto en ARS).
-        - Si se envía `amount`, se calcula `size = floor(amount / precio)`. Si size = 0, se rechaza.
+        - Si se envía `amount`, se calcula `size = floor(amount / precio)`. Si size = 0, se persiste como REJECTED y responde 201.
         - BUY / SELL: MARKET se ejecuta al último close (FILLED); LIMIT queda en NEW al precio pedido.
         - CASH_IN / CASH_OUT: solo con type MARKET (LIMIT → 400); `instrumentId` debe ser
           el instrumento de type MONEDA; `price` prohibido, igual que todo MARKET.
@@ -152,12 +152,40 @@ paths:
                 $ref: '#/components/schemas/Order'
         '400':
           description: Error de validación de contrato (ej. falta price en LIMIT, o se envió price en MARKET).
+          headers:
+            X-Request-Id:
+              schema:
+                type: string
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
           description: Usuario o instrumento no encontrado.
+          headers:
+            X-Request-Id:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflicto de persistencia según ADR-0012.
+          headers:
+            X-Request-Id:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error interno genérico sin detalles de persistencia.
+          headers:
+            X-Request-Id:
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -286,15 +314,21 @@ components:
           enum: [MARKET, LIMIT]
         size:
           type: integer
-          description: Cantidad de acciones. Obligatorio si no se envía `amount`.
+          minimum: 1
+          description: Acciones enteras o unidades enteras de ARS en operaciones cash. Obligatorio si no se envía `amount`.
         amount:
           type: number
           format: double
-          description: Monto total en ARS a invertir. Obligatorio si no se envía `size`.
+          exclusiveMinimum: true
+          minimum: 0
+          description: Monto en ARS a operar/invertir. Obligatorio si no se envía `size`.
         price:
           type: number
           format: double
           description: Obligatorio para tipo LIMIT. Prohibido para tipo MARKET.
+      oneOf:
+        - required: [size]
+        - required: [amount]
 
     Order:
       type: object
@@ -313,6 +347,7 @@ components:
           enum: [MARKET, LIMIT]
         size:
           type: integer
+          minimum: 0
         price:
           type: number
           format: double
