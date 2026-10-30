@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
-const seedPath = new URL('../database.sql', import.meta.url);
+const seedPath = new URL('../challenge_statements/database.sql', import.meta.url);
 const columnNames = new Map([
   ['accountnumber', 'account_number'],
   ['instrumentid', 'instrument_id'],
